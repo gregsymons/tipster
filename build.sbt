@@ -76,5 +76,6 @@ val tipster = (project in file(".")).
       "-language:implicitConversions",
       "-language:postfixOps"
     ),
-    scalaVersion := "2.12.1"
+    scalaVersion := "2.12.1",
+    wartremoverErrors ++= Warts.unsafe
   )

@@ -28,6 +28,7 @@ import akka.http.scaladsl.server._
 
 
 final class Tipster extends HttpApp {
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   override def route: Route = 
     path("health") {
       get {
@@ -50,8 +51,8 @@ final class Tipster extends HttpApp {
 
   override def waitForShutdownSignal(actorSystem: ActorSystem)(implicit ec: ExecutionContext): Future[Done] = {
     val promise = Promise[Done]()
-    sys.addShutdownHook {
-      promise.success(Done)
+    val _ = sys.addShutdownHook {
+      val _ = promise.success(Done)
     }
     promise.future
   }
