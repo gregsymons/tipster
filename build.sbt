@@ -44,6 +44,7 @@ val tipster = (project in file(".")).
     dockerBaseImage := "openjdk:8-jre-alpine",
     dockerExposedPorts := Seq(8080),
     (defaultLinuxInstallLocation in Docker) := s"/srv/${name.value}",
+    // I have no idea how to suppress the "discarded non-Unit value here.
     (integrate in IntegrationTest) := Def.sequential(
       (publishLocal in Docker),
       dockerCompose.toTask(" up --force-recreate -d"),
