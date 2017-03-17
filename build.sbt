@@ -22,8 +22,9 @@ organization := "biz.gsconsulting.tipster"
 
 version := "0.1.0"
 
-val akkaVersion = "2.4.17"
-val akkaHttpVersion = "10.0.4"
+val akkaVersion      = "2.4.17"
+val akkaHttpVersion  = "10.0.4"
+val logbackVersion   = "1.1.3"
 val scalaTestVersion = "3.0.1"
 
 val integrate = taskKey[Unit]("Run integration tests against the dockerized environment")
@@ -53,10 +54,12 @@ val tipster = (project in file(".")).
     ).value,
     // App Dependencies
     libraryDependencies ++= Seq(
-      "com.typesafe.akka" %% "akka-actor"  % akkaVersion,
-      "com.typesafe.akka" %% "akka-stream" % akkaVersion,
-      "com.typesafe.akka" %% "akka-slf4j"  % akkaVersion,
-      "com.typesafe.akka" %% "akka-http"   % akkaHttpVersion),
+      "ch.qos.logback"     % "logback-classic" % logbackVersion,
+      "com.typesafe.akka" %% "akka-actor"      % akkaVersion,
+      "com.typesafe.akka" %% "akka-stream"     % akkaVersion,
+      "com.typesafe.akka" %% "akka-slf4j"      % akkaVersion,
+      "com.typesafe.akka" %% "akka-http"       % akkaHttpVersion
+    ),
     // Test Dependencies
     libraryDependencies ++= Seq(
       "org.scalactic" %% "scalactic" % scalaTestVersion % "it,test",
