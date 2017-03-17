@@ -34,12 +34,12 @@ class HealthCheckSpec extends  FunSpecLike
   lazy val http = Http()
   
   override def afterAll: Unit = {
-    Await.result(system.terminate, 1 minute)
+    val _ = Await.result(system.terminate, 1 minute)
   }
 
   describe("The /health resource") {
     it("should be accessible at http://172.24.0.50/health") {
-      Await.result(http.singleRequest(HttpRequest(uri="http://172.24.0.50/health")), 5 seconds)
+      val _ = Await.result(http.singleRequest(HttpRequest(uri="http://172.24.0.50/health")), 5 seconds)
     }
   }
 }
