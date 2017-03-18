@@ -22,10 +22,11 @@ organization := "biz.gsconsulting.tipster"
 
 version := "0.1.0"
 
-val akkaVersion      = "2.4.17"
-val akkaHttpVersion  = "10.0.4"
-val logbackVersion   = "1.1.3"
-val scalaTestVersion = "3.0.1"
+val akkaVersion         = "2.4.17"
+val akkaHttpVersion     = "10.0.4"
+val dockerClientVersion = "8.1.2"
+val logbackVersion      = "1.1.3"
+val scalaTestVersion    = "3.0.1"
 
 val integrate = taskKey[Unit]("Run integration tests against the dockerized environment")
 
@@ -63,7 +64,8 @@ val tipster = (project in file(".")).
     // Test Dependencies
     libraryDependencies ++= Seq(
       "org.scalactic" %% "scalactic" % scalaTestVersion % "it,test",
-      "org.scalatest" %% "scalatest" % scalaTestVersion % "it,test"
+      "org.scalatest" %% "scalatest" % scalaTestVersion % "it,test",
+      "com.spotify"    % "docker-client" % dockerClientVersion % "it"
     ),
     scalacOptions ++= Seq(
       "-target:jvm-1.8",

@@ -42,3 +42,5 @@ services:
     restart: 'no'
     environment:
       VIRTUAL_HOST: tipster.gsconsulting.biz
+  postgresql:
+    image: postgres:9.6-alpine
