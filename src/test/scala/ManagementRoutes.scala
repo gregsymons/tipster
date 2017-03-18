@@ -16,38 +16,31 @@
  *
  */
 
-package tipster
+package tipster.test
 
-import scala.concurrent._
+import akka.http.scaladsl.testkit._
 
-import akka._
-import akka.actor._
-
-import akka.http.scaladsl.model._
-import akka.http.scaladsl.server._
+import org.scalatest._
 
 import tipster.management._
 
-
-final class Tipster extends HttpApp 
-  with ManagementApi
+class ManagementRoutesSpec extends FunSpec 
+  with Matchers
+  with ScalatestRouteTest 
 {
-  override def route: Route = managementRoutes
-
-  override def waitForShutdownSignal(actorSystem: ActorSystem)(implicit ec: ExecutionContext): Future[Done] = {
-    val promise = Promise[Done]()
-    val _ = sys.addShutdownHook {
-      val _ = promise.success(Done)
-    }
-    promise.future
+  object Api extends ManagementApi {
+    val routes = managementRoutes
   }
-}
 
-object Tipster {
-  def main(args: Array[String]): Unit = {
+  import Api._
 
-    val app = new Tipster
-    //TODO: configurate interface and port
-    app.startServer("0.0.0.0", 8080)
+  describe("The Tipster Management API") {
+    describe("The /health route") {
+      it("returns the buildinfo") {
+        Get("/health") ~> routes ~> check {
+          responseAs[String] should include("Build Info")
+        }
+      }
+    }
   }
 }

@@ -63,9 +63,10 @@ val tipster = (project in file(".")).
     ),
     // Test Dependencies
     libraryDependencies ++= Seq(
-      "org.scalactic" %% "scalactic" % scalaTestVersion % "it,test",
-      "org.scalatest" %% "scalatest" % scalaTestVersion % "it,test",
-      "com.spotify"    % "docker-client" % dockerClientVersion % "it"
+      "org.scalactic"     %% "scalactic"         % scalaTestVersion    % "it,test",
+      "org.scalatest"     %% "scalatest"         % scalaTestVersion    % "it,test",
+      "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion     % "test",
+      "com.spotify"        % "docker-client"     % dockerClientVersion % "it"
     ),
     scalacOptions ++= Seq(
       "-target:jvm-1.8",

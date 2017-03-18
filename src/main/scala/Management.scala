@@ -16,38 +16,32 @@
  *
  */
 
-package tipster
-
-import scala.concurrent._
-
-import akka._
-import akka.actor._
+package tipster.management
 
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server._
+import Directives._
 
-import tipster.management._
+import tipster.BuildInfo
 
-
-final class Tipster extends HttpApp 
-  with ManagementApi
-{
-  override def route: Route = managementRoutes
-
-  override def waitForShutdownSignal(actorSystem: ActorSystem)(implicit ec: ExecutionContext): Future[Done] = {
-    val promise = Promise[Done]()
-    val _ = sys.addShutdownHook {
-      val _ = promise.success(Done)
+trait ManagementApi {
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  def managementRoutes: Route =
+    path("health") {
+      get {
+        complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, s"""
+          |<h1>Tipster v${BuildInfo.version}</h1>
+          |
+          |<h2>Build Info:</h2>
+          |<table>
+          | ${(BuildInfo.toMap
+                       .toList
+                       .sortBy(_._1)
+                       .map { case (k, v) =>
+                          s"<tr><td>${k}</td><td>${v}</td></tr>"
+                       }).mkString("\n  ")}
+          |</table>
+        """.stripMargin))
+      }
     }
-    promise.future
-  }
-}
-
-object Tipster {
-  def main(args: Array[String]): Unit = {
-
-    val app = new Tipster
-    //TODO: configurate interface and port
-    app.startServer("0.0.0.0", 8080)
-  }
 }
