@@ -16,6 +16,8 @@
  *
  */
 
+package tipster.test.integration
+
 import scala.concurrent._
 import scala.concurrent.duration._
 
@@ -26,7 +28,7 @@ import akka.stream._
 
 import org.scalatest._
 
-class HealthCheckSpec extends  FunSpecLike
+class HealthCheckSpec extends FunSpec
   with BeforeAndAfterAll
 {
   implicit val system = ActorSystem("HealthCheckSpec")
