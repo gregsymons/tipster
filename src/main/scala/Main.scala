@@ -34,6 +34,7 @@ import akka.http.scaladsl._
 import com.typesafe
 
 import tipster.management._
+import tipster.storage._
 
 
 object Tipster extends ManagementApi
@@ -53,6 +54,8 @@ object Tipster extends ManagementApi
     implicit val materializer = ActorMaterializer()
     implicit val executionContext = system.dispatcher
     val config = TipsterConfiguration(system)
+
+    val storage = system.actorOf(Props[StorageManager], "storage")
 
     val allRoutes = managementRoutes
 
