@@ -18,36 +18,63 @@
 
 package tipster
 
+import java.lang.Thread
+
 import scala.concurrent._
+import scala.concurrent.duration._
+import scala.util._
 
 import akka._
 import akka.actor._
+import akka.stream._
 
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.server._
+import akka.http.scaladsl._
+
+import com.typesafe
 
 import tipster.management._
 
 
-final class Tipster extends HttpApp 
-  with ManagementApi
+object Tipster extends ManagementApi
 {
-  override def route: Route = managementRoutes
+  val banner = """
+  |  _______ _____  _____  _______ _______ _______  ______
+  |     |      |   |_____] |______    |    |______ |_____/
+  |     |    __|__ |       ______|    |    |______ |    \_
+  |                                                       
+  |  Starting Up...
+  """.stripMargin
 
-  override def waitForShutdownSignal(actorSystem: ActorSystem)(implicit ec: ExecutionContext): Future[Done] = {
-    val promise = Promise[Done]()
-    val _ = sys.addShutdownHook {
-      val _ = promise.success(Done)
-    }
-    promise.future
-  }
-}
-
-object Tipster {
   def main(args: Array[String]): Unit = {
+		println(banner)
 
-    val app = new Tipster
-    //TODO: configurate interface and port
-    app.startServer("0.0.0.0", 8080)
+    implicit val system = ActorSystem("Tipster")
+    implicit val materializer = ActorMaterializer()
+    implicit val executionContext = system.dispatcher
+    val config = TipsterConfiguration(system)
+
+    val allRoutes = managementRoutes
+
+    val binding = Http().bindAndHandle(allRoutes, config.apiListenAddress, config.apiListenPort)
+		binding.onComplete { _ =>
+			system.log.info(s"Tipster Server started on http://${config.apiListenAddress}:${config.apiListenPort}")
+		}
+
+		val shutdown =  {
+			val shutdownPromise = Promise[Done]
+			val _ = sys.addShutdownHook {
+				((binding.transformWith {
+					case Success(serverBinding) => serverBinding.unbind.flatMap(_ => Future.successful(Done))
+					case Failure(_) => Future.successful(Done)
+				}).transformWith { _ =>
+					system.log.info(s"Tipster Server terminated")
+					system.terminate
+				}).onComplete(_ => shutdownPromise.success(Done))
+			}
+			shutdownPromise.future
+		}
+
+		val _ = Await.ready(shutdown, Duration.Inf)
   }
 }
