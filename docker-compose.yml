@@ -45,3 +45,10 @@ services:
       - db
   db:
     image: postgres:9.6-alpine
+    networks:
+      public:
+        aliases:
+          - "tipster-db"
+    environment:
+      POSTGRES_USER: tipster
+      POSTGRES_PASSWORD: tipster

@@ -18,12 +18,25 @@
 
 package tipster
 
-import akka.actor._
-import com.typesafe.config.Config
+import java.util.{ Map => JMap, HashMap => JHashMap}
 
-final class TipsterConfigurationExtension(config: Config) extends Extension {
+import scala.collection.JavaConverters._
+
+import akka.actor._
+import com.typesafe.config._
+
+final case class TipsterConfigurationExtension(config: Config) extends Extension {
   val apiListenAddress = config.getString("tipster.api.address")
   val apiListenPort    = config.getInt("tipster.api.port")
+
+  def storageMigrationConfig: JMap[String, String] = {
+    val asConfig = config.getConfig("tipster.storage.migrations")
+    (asConfig.entrySet.asScala.map { e: JMap.Entry[String, ConfigValue] =>
+      (e.getKey, e.getValue.unwrapped.toString)
+    }).foldLeft(new JHashMap[String, String]()) { 
+      case (map: JHashMap[String, String], (key: String, value: String)) => val _ = map.put(key, value); map
+    }
+  }
 }
 
 object TipsterConfiguration extends ExtensionId[TipsterConfigurationExtension] 

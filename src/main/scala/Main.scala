@@ -36,6 +36,14 @@ import com.typesafe
 import tipster.management._
 import tipster.storage._
 
+final class TipsterGuardianStrategy extends SupervisorStrategyConfigurator {
+  def create() = OneForOneStrategy() {
+    case _: ConfigurationException => SupervisorStrategy.Escalate
+    case _: TipsterFatalError      => SupervisorStrategy.Escalate
+  }
+}
+
+trait TipsterFatalError
 
 object Tipster extends ManagementApi
 {

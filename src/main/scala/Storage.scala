@@ -20,14 +20,23 @@ package tipster.storage
 
 import scala.concurrent.duration._
 
-import akka.actor._
+import akka._
 import akka.pattern._
+import akka.actor._
+
+import tipster.TipsterConfiguration
+import tipster.storage.migrations._
 
 class StorageManager extends Actor
   with ActorLogging
 {
   import FlywayMigrator.Messages._
   import StorageManager.Messages._
+
+  override val supervisorStrategy = OneForOneStrategy() {
+    case _: ConfigurationException => SupervisorStrategy.Escalate
+    case _: MigrationFailure => SupervisorStrategy.Escalate
+  }
 
   override def preStart: Unit = {
     log.info("Tipster storage subsystem starting up")
@@ -47,6 +56,12 @@ class StorageManager extends Actor
           maxBackoff   = 30 seconds,
           randomFactor = 0.2
         ).withAutoReset(10 seconds)
+         .withSupervisorStrategy(
+           OneForOneStrategy() {
+             case _: ConfigurationException => SupervisorStrategy.Escalate
+             case _: MigrationFailure => SupervisorStrategy.Escalate
+           }
+        )
       )
 
       val supervisor = context.actorOf(supervisorProps, "migration-supervisor")
@@ -78,28 +93,3 @@ object StorageManager {
   }
 }
 
-class FlywayMigrator(val storageManager: ActorRef) extends Actor
-  with ActorLogging
-{
-  import FlywayMigrator.Messages._
-
-  override def preStart: Unit = {
-    log.info("FlywayMigrator starting up")
-    storageManager ! MigrationComplete
-  }
-
-  //receive functions will always trigger this warning,
-  //apparently
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def receive: Receive = {
-    case _ =>
-  }
-}
-
-object FlywayMigrator {
-  object Messages {
-    case object MigrationComplete
-  }
-
-  def props(storageManager: ActorRef) = Props(classOf[FlywayMigrator], storageManager)
-}

@@ -22,11 +22,14 @@ organization := "biz.gsconsulting.tipster"
 
 version := "0.1.0"
 
-val akkaVersion         = "2.4.17"
-val akkaHttpVersion     = "10.0.4"
-val dockerClientVersion = "8.1.2"
-val logbackVersion      = "1.1.3"
-val scalaTestVersion    = "3.0.1"
+val akkaVersion           = "2.4.17"
+val akkaHttpVersion       = "10.0.4"
+val dockerClientVersion   = "8.1.2"
+val flywayVersion         = "4.1.2"
+val logbackVersion        = "1.1.3"
+val scalaTestVersion      = "3.0.1"
+val slickVersion          = "3.2.0"
+val postgresDriverVersion = "42.0.0"
 
 val integrate = taskKey[Unit]("Run integration tests against the dockerized environment")
 
@@ -55,11 +58,15 @@ val tipster = (project in file(".")).
     ).value,
     // App Dependencies
     libraryDependencies ++= Seq(
-      "ch.qos.logback"     % "logback-classic" % logbackVersion,
-      "com.typesafe.akka" %% "akka-actor"      % akkaVersion,
-      "com.typesafe.akka" %% "akka-stream"     % akkaVersion,
-      "com.typesafe.akka" %% "akka-slf4j"      % akkaVersion,
-      "com.typesafe.akka" %% "akka-http"       % akkaHttpVersion
+      "ch.qos.logback"      % "logback-classic" % logbackVersion,
+      "com.typesafe.akka"  %% "akka-actor"      % akkaVersion,
+      "com.typesafe.akka"  %% "akka-stream"     % akkaVersion,
+      "com.typesafe.akka"  %% "akka-slf4j"      % akkaVersion,
+      "com.typesafe.akka"  %% "akka-http"       % akkaHttpVersion,
+      "com.typesafe.slick" %% "slick"           % slickVersion,
+      "com.typesafe.slick" %% "slick-hikaricp"  % slickVersion,
+      "org.flywaydb"        % "flyway-core"     % flywayVersion,
+      "org.postgresql"      % "postgresql"      % postgresDriverVersion
     ),
     // Test Dependencies
     libraryDependencies ++= Seq(
@@ -84,5 +91,5 @@ val tipster = (project in file(".")).
       "-language:postfixOps"
     ),
     scalaVersion := "2.12.1",
-    wartremoverErrors ++= Warts.unsafe
+    (wartremoverErrors in (Compile, compile)) ++= Warts.unsafe
   )
