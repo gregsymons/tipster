@@ -35,6 +35,7 @@ import com.typesafe
 
 import tipster.management._
 import tipster.storage._
+import tipster.tips._
 
 final class TipsterGuardianStrategy extends SupervisorStrategyConfigurator {
   def create() = OneForOneStrategy() {
@@ -45,7 +46,7 @@ final class TipsterGuardianStrategy extends SupervisorStrategyConfigurator {
 
 trait TipsterFatalError
 
-object Tipster extends ManagementApi
+object Tipster extends ManagementApi with TipsApi
 {
   val banner = """
   |  _______ _____  _____  _______ _______ _______  ______
@@ -65,7 +66,7 @@ object Tipster extends ManagementApi
 
     val storage = system.actorOf(Props[StorageManager], "storage")
 
-    val allRoutes = managementRoutes
+    val allRoutes = managementRoutes ~ tipsRoutes
 
     val binding = Http().bindAndHandle(allRoutes, config.apiListenAddress, config.apiListenPort)
 		binding.onComplete { _ =>

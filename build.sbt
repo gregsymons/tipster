@@ -63,6 +63,7 @@ val tipster = (project in file(".")).
       "com.typesafe.akka"  %% "akka-stream"     % akkaVersion,
       "com.typesafe.akka"  %% "akka-slf4j"      % akkaVersion,
       "com.typesafe.akka"  %% "akka-http"       % akkaHttpVersion,
+      "com.typesafe.akka"  %% "akka-http-spray-json" % akkaHttpVersion,
       "com.typesafe.slick" %% "slick"           % slickVersion,
       "com.typesafe.slick" %% "slick-hikaricp"  % slickVersion,
       "org.flywaydb"        % "flyway-core"     % flywayVersion,
