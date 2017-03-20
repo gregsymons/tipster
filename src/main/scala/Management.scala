@@ -20,11 +20,10 @@ package tipster.management
 
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server._
-import Directives._
 
 import tipster.BuildInfo
 
-trait ManagementApi {
+trait ManagementApi extends Directives {
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def managementRoutes: Route =
     path("health") {
