@@ -28,6 +28,7 @@ object DockerComposePlugin extends AutoPlugin {
   object autoImport {
     val dockerCompose = inputKey[String]("Run a raw docker-compose command and return its output")
     val dockerComposeCommand = settingKey[String]("The path to the docker-compose command")
+    val dockerComposeEnvVars = settingKey[Seq[(String, String)]]("Environment variables to set when running docker-compose")
   }
 
   import autoImport._
@@ -35,13 +36,26 @@ object DockerComposePlugin extends AutoPlugin {
   override def projectSettings = Seq(
     dockerCompose := {
       val args = spaceDelimited("<command> <options>").parsed
-      execDockerCompose(dockerComposeCommand.value, args, streams.value.log)
+      execDockerCompose(
+        dockerComposeCommand.value,
+        args,
+        dockerComposeEnvVars.value,
+        streams.value.log)
     },
-    dockerComposeCommand := "docker-compose"
+    dockerComposeCommand := "docker-compose",
+    dockerComposeEnvVars := Seq()
   )
 
-  def execDockerCompose(command: String, args: Seq[String], log: Logger) = {
-    val cmdline = s"$command ${args mkString " "}"
+  def execDockerCompose(command: String,
+                        args: Seq[String], 
+                        environment: Seq[(String, String)],
+                        log: Logger
+  ): String = {
+    val envString = environment map { e =>
+      val (envvar, value) = e
+      s"$envvar=$value"
+    } mkString " "
+    val cmdline = s"env ${envString} $command ${args mkString " "}"
     log.info(s"Executing command: $cmdline")
     cmdline !!
   }
