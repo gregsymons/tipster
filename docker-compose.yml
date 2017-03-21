@@ -40,7 +40,8 @@ services:
     networks:
       - public
     environment:
-      VIRTUAL_HOST: tipster.gsconsulting.biz
+      - VIRTUAL_HOST=tipster.gsconsulting.biz
+      - TIPSTER_DB_MIGRATIONS_CLEAN_ON_VALIDATE_FAILURE
     depends_on: 
       - db
   db:

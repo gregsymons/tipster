@@ -51,12 +51,17 @@ val tipster = (project in file(".")).
     dockerBaseImage := "openjdk:8-jre-alpine",
     dockerExposedPorts := Seq(8080),
     (defaultLinuxInstallLocation in Docker) := s"/srv/${name.value}",
+    dockerComposeEnvVars := Seq(
+      ("TIPSTER_DB_MIGRATIONS_CLEAN_ON_VALIDATE_FAILURE", "true")
+    ),
     // I have no idea how to suppress the "discarded non-Unit value here.
     (integrate in IntegrationTest) := Def.sequential(
+      (test in Test),
+      (compile in IntegrationTest),
       (publishLocal in Docker),
       dockerCompose.toTask(" up --force-recreate -d"),
       (test in IntegrationTest),
-      dockerCompose.toTask(" down")
+      dockerCompose.toTask(" down -v --remove-orphans")
     ).value,
     // App Dependencies
     libraryDependencies ++= Seq(
