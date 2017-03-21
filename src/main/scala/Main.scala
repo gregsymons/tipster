@@ -26,9 +26,12 @@ import scala.util._
 
 import akka._
 import akka.actor._
+import akka.pattern._
 import akka.stream._
+import akka.util._
 
 import akka.http.scaladsl.model._
+import akka.http.scaladsl.server._
 import akka.http.scaladsl._
 
 import com.typesafe
@@ -36,6 +39,7 @@ import com.typesafe
 import tipster.management._
 import tipster.storage._
 import tipster.tips._
+import tipster.tips.services._
 
 final class TipsterGuardianStrategy extends SupervisorStrategyConfigurator {
   def create() = OneForOneStrategy() {
@@ -46,8 +50,80 @@ final class TipsterGuardianStrategy extends SupervisorStrategyConfigurator {
 
 trait TipsterFatalError
 
-object Tipster extends ManagementApi with TipsApi
+case class FailedToBind(
+  listenAddress: String, 
+  listenPort: Int,
+  cause: Throwable
+) extends Exception(s"Failed to bind to ${listenAddress}:${listenPort}", cause) 
+  with TipsterFatalError
+
+final class TipsterService(shutdownPromise: Promise[Done]) extends Actor
+  with ActorLogging
+  with ManagementApi
+  with TipsApi
 {
+  import Http.ServerBinding
+  import StorageManager.Messages._
+  // These are vars because we can't initialize them until after
+  // migrations are complete. Otherwise, weird things seem to happen
+  // with connections not having the correct `search_path`. They're
+  // never accessed outside of this actor so "unsafe" just means 
+  // they're mutable.
+  @SuppressWarnings(Array("org.wartremover.warts.Var"))
+  private var unsafeTipsWriter: Option[PostgresTipsWriter] = None
+  @SuppressWarnings(Array("org.wartremover.warts.Var"))
+  private var unsafeTipsReader: Option[PostgresTipsReader] = None
+
+  override def tipsWriter: Option[PostgresTipsWriter] = unsafeTipsWriter
+  override def tipsReader: Option[PostgresTipsReader] = unsafeTipsReader
+
+  implicit val system = context.system
+  implicit val materializer = ActorMaterializer()(context)
+  implicit val dispatcher = context.dispatcher
+
+  val storage = context.actorOf(StorageManager.props, "storage")
+  val allRoutes = managementRoutes ~ tipsRoutes
+  val config = TipsterConfiguration(context.system)
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  def receive: Receive = {
+    case StorageReady => {
+      unsafeTipsWriter = Some(PostgresTipsWriter(context.system))
+      unsafeTipsReader = Some(PostgresTipsReader(context.system))
+      val _ = Http().bindAndHandle(allRoutes,
+                           config.apiListenAddress,
+                           config.apiListenPort) pipeTo self
+      context.become(binding)
+    }
+  }
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.Throw"))
+  def binding: Receive = {
+    case serverBinding: ServerBinding => {
+			system.log.info(s"Tipster Server started on http://${config.apiListenAddress}:${config.apiListenPort}")
+      context.become(running(serverBinding))
+    }
+    case Failure(e) => throw FailedToBind(config.apiListenAddress, config.apiListenPort, e)
+  }
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  def running(serverBinding: ServerBinding): Receive = {
+    case _ =>
+  }
+
+  override def postStop: Unit = {
+    system.log.info(s"Tipster Server terminated")
+    val _ = shutdownPromise.success(Done)
+  }
+}
+
+object TipsterService {
+  def props(shutdownPromise: Promise[Done]) = Props(classOf[TipsterService], shutdownPromise)
+}
+
+object Tipster
+{
+
   val banner = """
   |  _______ _____  _____  _______ _______ _______  ______
   |     |      |   |_____] |______    |    |______ |_____/
@@ -55,35 +131,14 @@ object Tipster extends ManagementApi with TipsApi
   |                                                       
   |  Starting Up...
   """.stripMargin
-
+  
   def main(args: Array[String]): Unit = {
 		println(banner)
-
-    implicit val system = ActorSystem("Tipster")
-    implicit val materializer = ActorMaterializer()
-    implicit val executionContext = system.dispatcher
-    val config = TipsterConfiguration(system)
-
-    val storage = system.actorOf(Props[StorageManager], "storage")
-
-    val allRoutes = managementRoutes ~ tipsRoutes
-
-    val binding = Http().bindAndHandle(allRoutes, config.apiListenAddress, config.apiListenPort)
-		binding.onComplete { _ =>
-			system.log.info(s"Tipster Server started on http://${config.apiListenAddress}:${config.apiListenPort}")
-		}
-
+    val system  = ActorSystem("Tipster")
+    val config  = TipsterConfiguration(system)
 		val shutdown =  {
 			val shutdownPromise = Promise[Done]
-			val _ = sys.addShutdownHook {
-				((binding.transformWith {
-					case Success(serverBinding) => serverBinding.unbind.flatMap(_ => Future.successful(Done))
-					case Failure(_) => Future.successful(Done)
-				}).transformWith { _ =>
-					system.log.info(s"Tipster Server terminated")
-					system.terminate
-				}).onComplete(_ => shutdownPromise.success(Done))
-			}
+      val service = system.actorOf(TipsterService.props(shutdownPromise), "tipster")
 			shutdownPromise.future
 		}
 

@@ -20,7 +20,7 @@ package tipster.test.matchers
 
 import org.scalatest.matchers._
 
-import tipster.tips._
+import tipster.tips.model._
 
 trait TipsMatchers {
   def username[A <: HasUsername](expected: String) = new HavePropertyMatcher[A, String] {
@@ -43,7 +43,7 @@ trait TipsMatchers {
       )
   }
 
-  def id[A <: HasId](expected: Long) = new HavePropertyMatcher[A, Long] {
+  def id[A <: HasId](expected: Int) = new HavePropertyMatcher[A, Int] {
     def apply(message: A) =
       HavePropertyMatchResult(
         message.id == expected,

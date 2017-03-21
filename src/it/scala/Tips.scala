@@ -32,11 +32,16 @@ import akka.http.scaladsl.unmarshalling._
 import akka.stream._
 import akka.stream.scaladsl._
 
+import slick.jdbc.PostgresProfile.api._
+
 import org.scalatest._
 
 import tipster.test.integration.util._
 
+import tipster._
+import tipster.json._
 import tipster.tips._
+import tipster.tips.model._
 import tipster.test.matchers.TipsMatchers
 
 class TipsSpec extends AsyncFunSpec 
@@ -44,6 +49,7 @@ class TipsSpec extends AsyncFunSpec
   with TipsJsonSupport
   with Matchers
   with TipsMatchers
+  with UsesReadDatabase
 {
   implicit val executor = system.dispatcher
 
@@ -127,14 +133,19 @@ class TipsSpec extends AsyncFunSpec
 
           postTip(tip).flatMap { attempts =>
             val filtered = attempts filter successfulAttempts
-            val (Success(response), originalTip) = filtered.last
-            
-            Unmarshal(response.entity).to[Tip].map { responseTip =>
-              responseTip should have (
-                (username (originalTip.username)),
-                (message  (originalTip.message))
-              )
-            }
+
+            filtered should not be empty
+
+            if (filtered.nonEmpty) {
+              val (Success(response), originalTip) = filtered.last
+              
+              Unmarshal(response.entity).to[Tip].map { responseTip =>
+                responseTip should have (
+                  (username (originalTip.username)),
+                  (message  (originalTip.message))
+                )
+              }
+            } else fail
           }
         }
 
@@ -147,20 +158,59 @@ class TipsSpec extends AsyncFunSpec
           //List[(Try[HttpResponse], CreateTip)]
           postTip(tip).flatMap { putAttempts =>
             val filteredPut = putAttempts filter successfulAttempts
-            val (Success(putResponse), _) = filteredPut.last
-            
-            Unmarshal(putResponse.entity).to[Tip].flatMap { putResponseTip =>
-              getTip(GetTip(putResponseTip.id)).flatMap { getAttempts =>
-                val filteredGet = getAttempts filter successfulAttempts
-                val (Success(getResponse), _) = filteredGet.last
+            filteredPut should not be empty
 
-                Unmarshal(getResponse.entity).to[Tip].flatMap { getResponseTip =>
-                  getResponseTip should have (
-                    (id (putResponseTip.id)),
-                    (username (putResponseTip.username)),
-                    (message (putResponseTip.message))
-                  )
+            if (filteredPut.nonEmpty) {
+              val (Success(putResponse), _) = filteredPut.last
+              
+              Unmarshal(putResponse.entity).to[Tip].flatMap { putResponseTip =>
+                getTip(GetTip(putResponseTip.id)).flatMap { getAttempts =>
+                  val filteredGet = getAttempts filter successfulAttempts
+                  filteredGet should not be empty
+                  
+                  if (filteredGet.nonEmpty) {
+                    val (Success(getResponse), _) = filteredGet.last
+
+                    Unmarshal(getResponse.entity).to[Tip].flatMap { getResponseTip =>
+                      getResponseTip should have (
+                        (id (putResponseTip.id)),
+                        (username (putResponseTip.username)),
+                        (message (putResponseTip.message))
+                      )
+                    }
+                  } else fail
                 }
+              }
+            } else fail
+          }
+        }
+
+        //FIXME: I would tend to prefer keeping the tests fully blackbox, but my 
+        //self-imposed deadlinee looms.
+        it ("should be in the database") {
+          val tip = CreateTip(
+            username = "juser",
+            message = "a message that will fit"
+          )
+
+          postTip(tip).flatMap { putAttempts =>
+            val filteredPut = putAttempts filter successfulAttempts
+            val (Success(response), _) = filteredPut.last
+            
+            Unmarshal(response.entity).to[Tip].flatMap { responseTip =>
+              val responseId = responseTip.id
+              val query = sql"""select id, username, message from tips where id = $responseId""".as[(Long, String, String)]
+
+              readDatabase.run(query).flatMap { result =>
+                result should not be empty
+
+                if (result.nonEmpty) {
+                  (result.last) should have (
+                    ('_1 /* id       */ (responseTip.id)),
+                    ('_2 /* username */ (responseTip.username)),
+                    ('_3 /* message  */ (responseTip.message))
+                  )
+                } else fail
               }
             }
           }

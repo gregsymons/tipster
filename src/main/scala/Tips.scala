@@ -18,79 +18,97 @@
 
 package tipster.tips
 
+import scala.concurrent._
+
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server._
 import akka.http.scaladsl.marshalling._
 import akka.http.scaladsl.unmarshalling._
 
-import spray.json._
+import org.joda.time.{ DateTime => JodaDateTime }
 
-sealed trait TipMessage { }
-sealed trait HasUsername {
-  val username: String
+import tipster.json._
+
+object model {
+  sealed trait TipMessage { }
+  sealed trait HasUsername {
+    val username: String
+  }
+  sealed trait HasMessage {
+    val message: String
+  }
+  sealed trait HasId {
+    val id: Int
+  }
+
+  final case class GetTip(override val id: Int) 
+    extends TipMessage
+    with HasId
+
+  final case class CreateTip(
+    override val username: String,
+    override val message: String
+  ) extends TipMessage
+    with HasUsername
+    with HasMessage
+
+  final case class Tip(
+    override val id: Int,
+    override val username: String,
+    override val message: String,
+    created: JodaDateTime,
+    updated: JodaDateTime
+  ) extends TipMessage
+    with HasUsername
+    with HasMessage
+    with HasId
 }
-sealed trait HasMessage {
-  val message: String
-}
-sealed trait HasId {
-  val id: Long
-}
 
-final case class GetTip(id: Long) extends TipMessage
+object services {
+  import model._
 
-final case class CreateTip(
-  override val username: String,
-  override val message: String
-) extends TipMessage
-  with HasUsername
-  with HasMessage
+  trait TipsWriter {
+    def createTip(tip: CreateTip): Future[Tip]
+  }
 
-final case class Tip(
-  override val id: Long,
-  override val username: String,
-  override val message: String,
-  created: String,
-  updated: String
-) extends TipMessage
-  with HasUsername
-  with HasMessage
-  with HasId
-
-trait TipsJsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
-  implicit val createTipFormat = jsonFormat2(CreateTip)
-  implicit val tipFormat = jsonFormat5(Tip)
+  trait TipsReader {
+    def findTip(tip: GetTip): Future[Option[Tip]]
+  }
 }
 
 trait TipsApi extends Directives
   with TipsJsonSupport
 {
+  import model._
+  import services._
+
+  def tipsWriter: Option[TipsWriter]
+  def tipsReader: Option[TipsReader]
+
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
   def tipsRoutes: Route = 
     pathPrefix("tips") {
       pathEnd {
         post {
-          entity(as[CreateTip]) { incoming =>
-            completeWith(instanceOf[Tip]) { completion => 
-              completion(Tip(id=1,
-                             username=incoming.username,
-                             message=incoming.message,
-                             created="",
-                             updated="")) 
+          tipsWriter map { writer =>
+            entity(as[CreateTip]) { incoming =>
+              onComplete(writer.createTip(incoming)) { tip =>
+                complete(tip)
+              }
             }
-          }
+          } getOrElse complete(StatusCodes.InternalServerError)
         }
       } ~
-        path(LongNumber) { id =>
+        path(IntNumber) { id =>
           pathEnd {
             get {
-                completeWith(instanceOf[Tip]) { completion => 
-                  completion(Tip(id=1,
-                                 username="juser",
-                                 message="a message that will fit",
-                                 created="",
-                                 updated=""))
-              }
+              tipsReader map { reader =>
+                onSuccess(reader.findTip(GetTip(id))) {
+                  case Some(tip) => complete(tip)
+                  case None => complete(StatusCodes.NotFound)
+                }
+              } getOrElse complete(StatusCodes.InternalServerError)
             }
           }
         }

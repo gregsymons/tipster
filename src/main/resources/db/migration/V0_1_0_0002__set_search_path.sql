@@ -16,11 +16,4 @@
 --
 ------
 
-CREATE TABLE tips (
-  id serial NOT NULL PRIMARY KEY,
-  username varchar(100) NOT NULL,
-  message varchar(140) NOT NULL,
-  created timestamp with time zone NOT NULL DEFAULT(now()),
-  updated timestamp with time zone NOT NULL DEFAULT(now())
-)
-
+ALTER DATABASE ${db.name} SET search_path = public,${db.schema};
