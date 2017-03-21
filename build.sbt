@@ -43,9 +43,11 @@ val tipster = (project in file(".")).
   settings(
     buildInfoPackage := "tipster",
     buildInfoOptions ++= Seq(
-      BuildInfoOption.ToMap,
-      BuildInfoOption.BuildTime
-    ),
+      Some(BuildInfoOption.ToMap),
+      // Only put the build time in for CI builds so that
+      // local builds can leverage docker caching.
+      sys.env.get("CI") map { _ => BuildInfoOption.BuildTime }
+    ).flatten,
     dockerBaseImage := "openjdk:8-jre-alpine",
     dockerExposedPorts := Seq(8080),
     (defaultLinuxInstallLocation in Docker) := s"/srv/${name.value}",
