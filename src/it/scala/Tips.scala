@@ -216,6 +216,32 @@ class TipsSpec extends AsyncFunSpec
           }
         }
       }
+
+      describe("Posting a tip with a message > 140 characters") {
+        it ("should fail with a 400") {
+          val tip = CreateTip(
+            username = "juser",
+            message = """
+              |We only allow 140 characters for a tip, but this message is longer
+              |than that (it's actually 158 characters long, which is too many
+              |characters by 18 characters)
+            """.stripMargin
+          )
+
+          postTip(tip, {
+            case (Success(HttpResponse(status, _, _, _)), _) => status.intValue != 400 || status.intValue >= 500
+            case (Success(_), _) => false
+            case _ => true
+          }).map { attempts =>
+            val filtered = attempts.filter {
+              case (Success(HttpResponse(status, _, _, _)), _) => status.intValue == 400
+              case _ => false
+            }
+
+            filtered should not be empty
+          }
+        }
+      }
     }
   }
 }

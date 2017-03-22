@@ -63,6 +63,16 @@ object model {
     with HasUsername
     with HasMessage
     with HasId
+
+  //Explicitly extend Function5 so Slick auto mapping works.
+  object Tip extends Function5[Int,
+                               String,
+                               String,
+                               JodaDateTime,
+                               JodaDateTime,
+                               Tip] {
+    val MAX_MESSAGE_LEN = 140
+  }
 }
 
 object services {
@@ -93,8 +103,12 @@ trait TipsApi extends Directives
         post {
           tipsWriter map { writer =>
             entity(as[CreateTip]) { incoming =>
-              onComplete(writer.createTip(incoming)) { tip =>
-                complete(tip)
+              validate(incoming.message.length <= Tip.MAX_MESSAGE_LEN,
+                       "Message too long")
+              {
+                onComplete(writer.createTip(incoming)) { tip =>
+                  complete(tip)
+                }
               }
             }
           } getOrElse complete(StatusCodes.InternalServerError)
