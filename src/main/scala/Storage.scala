@@ -24,8 +24,11 @@ import scala.concurrent.duration._
 import akka._
 import akka.pattern._
 import akka.actor._
+import akka.stream._
+import akka.stream.scaladsl._
 
 import slick.jdbc.PostgresProfile.api._
+import slick.jdbc._
 import com.github.tototoshi.slick.PostgresJodaSupport._
 
 import com.typesafe.config.Config
@@ -54,9 +57,11 @@ object TipsTables {
 trait PostgresQueryExecutor {
 
   val system: ActorSystem
-  def config: Config
+  val config = TipsterConfiguration(system)
 
-  val database = Database.forConfig("db", config)
+  def databaseConfig: Config
+
+  val database = Database.forConfig("db", databaseConfig)
   implicit val executor = system.dispatcher
 }
 
@@ -66,7 +71,7 @@ final case class PostgresTipsWriter(override val system: ActorSystem)
 {
   import TipsTables._
 
-  override def config = TipsterConfiguration(system).storageWriteConfig
+  override def databaseConfig = config.storageWriteConfig
 
   override def createTip(tip: CreateTip): Future[Tip] = {
     database.run(
@@ -83,10 +88,25 @@ final case class PostgresTipsReader(override val system: ActorSystem)
 {
   import TipsTables._
   
-  override def config = TipsterConfiguration(system).storageReadConfig
+  override def databaseConfig = config.storageReadConfig
 
   override def findTip(tip: GetTip): Future[Option[Tip]] = {
     database.run(tips.filter(_.id === tip.id).result.headOption)
+  }
+
+  override def getAllTips: Source[Tip, NotUsed] = {
+    val query = (
+      for {
+        t <- tips 
+      } yield t
+    ).result
+     .withStatementParameters(
+        rsType        = ResultSetType.ForwardOnly,
+        rsConcurrency = ResultSetConcurrency.ReadOnly,
+        fetchSize     = config.storageFetchSize
+    ).transactionally
+
+    Source.fromPublisher(database.stream(query))
   }
 }
 

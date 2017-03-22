@@ -20,7 +20,12 @@ package tipster.tips
 
 import scala.concurrent._
 
+import akka._
+import akka.stream._
+import akka.stream.scaladsl._
+
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
+import akka.http.scaladsl.common._
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server._
 import akka.http.scaladsl.marshalling._
@@ -42,9 +47,12 @@ object model {
     val id: Int
   }
 
-  final case class GetTip(override val id: Int) 
-    extends TipMessage
-    with HasId
+  @SuppressWarnings(Array("org.wartremover.warts.DefaultArguments"))
+  final case class GetTip(id: Option[Int] = None) 
+
+  object GetTip extends TipMessage{
+    def apply(id: Int): GetTip = GetTip(Some(id))
+  }
 
   final case class CreateTip(
     override val username: String,
@@ -84,6 +92,7 @@ object services {
 
   trait TipsReader {
     def findTip(tip: GetTip): Future[Option[Tip]]
+    def getAllTips: Source[Tip, NotUsed]
   }
 }
 
@@ -97,7 +106,9 @@ trait TipsApi extends Directives
   def tipsReader: Option[TipsReader]
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-  def tipsRoutes: Route = 
+  def tipsRoutes: Route = {
+    implicit val jsess = EntityStreamingSupport.json
+
     pathPrefix("tips") {
       pathEnd {
         post {
@@ -111,6 +122,11 @@ trait TipsApi extends Directives
                 }
               }
             }
+          } getOrElse complete(StatusCodes.InternalServerError)
+        } ~
+        get {
+          tipsReader map { reader =>
+            complete(reader.getAllTips)
           } getOrElse complete(StatusCodes.InternalServerError)
         }
       } ~
@@ -127,4 +143,5 @@ trait TipsApi extends Directives
           }
         }
     }
+  }
 }

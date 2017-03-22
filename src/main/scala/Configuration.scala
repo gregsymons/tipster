@@ -29,6 +29,7 @@ final case class TipsterConfigurationExtension(config: Config) extends Extension
   val apiListenAddress = config.getString("tipster.api.address")
   val apiListenPort    = config.getInt("tipster.api.port")
 
+  val storageFetchSize  = config.getInt("tipster.storage.fetch_size")
   val storageReadConfig = config.getConfig("tipster.storage.read")
   val storageWriteConfig = config.getConfig("tipster.storage.write")
   def storageMigrationConfig: JMap[String, String] = {
