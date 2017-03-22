@@ -63,9 +63,8 @@ trait TipsJsonSupport extends SprayJsonSupport
   with DefaultJsonProtocol 
   with DateTimeSupport 
 {
-
   implicit val createTipFormat = jsonFormat2(CreateTip)
   implicit val tipFormat = jsonFormat5(Tip)
-
+  implicit val commentFormat = jsonFormat5(Comment)
 }
 

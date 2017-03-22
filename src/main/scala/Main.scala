@@ -48,6 +48,10 @@ final class TipsterGuardianStrategy extends SupervisorStrategyConfigurator {
   }
 }
 
+object TipsterGuardianStrategy {
+  def apply() = new TipsterGuardianStrategy
+}
+
 trait TipsterFatalError
 
 case class FailedToBind(
@@ -85,8 +89,10 @@ final class TipsterService(shutdownPromise: Promise[Done]) extends Actor
   val allRoutes = managementRoutes ~ tipsRoutes
   val config = TipsterConfiguration(context.system)
 
+  override val supervisorStrategy = TipsterGuardianStrategy().create
+
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def receive: Receive = {
+  override def receive: Receive = {
     case StorageReady => {
       unsafeTipsWriter = Some(PostgresTipsWriter(context.system))
       unsafeTipsReader = Some(PostgresTipsReader(context.system))

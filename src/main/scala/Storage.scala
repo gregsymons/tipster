@@ -51,7 +51,17 @@ object TipsTables {
     def * = (id, username, message, created, updated) <> (Tip.tupled, Tip.unapply)
   }
 
+  class Comments(tag: Tag) extends Table[Comment](tag, "comments") {
+    def id       = column[Int]("id", O.PrimaryKey, O.AutoInc)
+    def tipId    = column[Int]("tip_id")
+    def username = column[String]("username")
+    def comment  = column[String]("comment")
+    def created  = column[DateTime]("created")
+    def * = (id, tipId, username, comment, created) <> (Comment.tupled, Comment.unapply)
+  }
+
   val tips = TableQuery[Tips]
+  val comments = TableQuery[Comments]
 }
 
 trait PostgresQueryExecutor {
@@ -80,6 +90,14 @@ final case class PostgresTipsWriter(override val system: ActorSystem)
         into ((_, fullTip) => Tip.tupled.apply(fullTip))) += ((tip.username, tip.message))
     ) 
   }
+
+  override def createComment(comment: CreateComment): Future[Comment] = {
+    database.run(
+      (comments.map(c => (c.tipId, c.username, c.comment))
+        returning comments.map(c => (c.id, c.tipId, c.username, c.comment, c.created))
+        into ((_, fullComment) => Comment.tupled.apply(fullComment))) += ((comment.tipId, comment.username, comment.comment))
+    )
+  }
 }
 
 final case class PostgresTipsReader(override val system: ActorSystem) 
@@ -99,6 +117,22 @@ final case class PostgresTipsReader(override val system: ActorSystem)
       for {
         t <- tips 
       } yield t
+    ).result
+     .withStatementParameters(
+        rsType        = ResultSetType.ForwardOnly,
+        rsConcurrency = ResultSetConcurrency.ReadOnly,
+        fetchSize     = config.storageFetchSize
+    ).transactionally
+
+    Source.fromPublisher(database.stream(query))
+  }
+
+  override def getAllComments(comment: GetComment): Source[Comment, NotUsed] = {
+    val query = (
+      for {
+        c <- comments
+        if c.tipId == comment.tipId
+      } yield c
     ).result
      .withStatementParameters(
         rsType        = ResultSetType.ForwardOnly,

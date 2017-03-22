@@ -46,9 +46,9 @@ object model {
   sealed trait HasId {
     val id: Int
   }
-
+  
   @SuppressWarnings(Array("org.wartremover.warts.DefaultArguments"))
-  final case class GetTip(id: Option[Int] = None) 
+  final case class GetTip(id: Option[Int] = None) extends TipMessage 
 
   object GetTip extends TipMessage{
     def apply(id: Int): GetTip = GetTip(Some(id))
@@ -81,6 +81,27 @@ object model {
                                Tip] {
     val MAX_MESSAGE_LEN = 140
   }
+
+  sealed trait CommentMessage { }
+
+  final case class CreateComment(
+    tipId: Int,
+    username: String,
+    comment: String
+  ) extends CommentMessage
+
+  final case class GetComment(
+    tipId: Int,
+    id: Option[Int]
+  )
+
+  final case class Comment(
+    id: Int,
+    tipId: Int,
+    username: String,
+    comment: String,
+    created: JodaDateTime
+  ) extends CommentMessage
 }
 
 object services {
@@ -88,11 +109,13 @@ object services {
 
   trait TipsWriter {
     def createTip(tip: CreateTip): Future[Tip]
+    def createComment(comment: CreateComment): Future[Comment]
   }
 
   trait TipsReader {
     def findTip(tip: GetTip): Future[Option[Tip]]
     def getAllTips: Source[Tip, NotUsed]
+    def getAllComments(comments: GetComment): Source[Comment, NotUsed]
   }
 }
 
@@ -117,9 +140,7 @@ trait TipsApi extends Directives
               validate(incoming.message.length <= Tip.MAX_MESSAGE_LEN,
                        "Message too long")
               {
-                onComplete(writer.createTip(incoming)) { tip =>
-                  complete(tip)
-                }
+                complete(writer.createTip(incoming)) 
               }
             }
           } getOrElse complete(StatusCodes.InternalServerError)
@@ -130,18 +151,42 @@ trait TipsApi extends Directives
           } getOrElse complete(StatusCodes.InternalServerError)
         }
       } ~
-        path(IntNumber) { id =>
+        pathPrefix(IntNumber) { tipId =>
           pathEnd {
             get {
               tipsReader map { reader =>
-                onSuccess(reader.findTip(GetTip(id))) {
+                onSuccess(reader.findTip(GetTip(tipId))) {
                   case Some(tip) => complete(tip)
                   case None => complete(StatusCodes.NotFound)
                 }
               } getOrElse complete(StatusCodes.InternalServerError)
             }
-          }
-        }
+          } ~
+            pathPrefix("comments") { 
+              pathEnd {
+                post {
+                  tipsWriter map { writer =>
+                    entity(as[Map[String, String]]) { incoming =>
+                      (validate(incoming.get("username").nonEmpty, "username field is required") &
+                       validate(incoming.get("comment").nonEmpty, "comment field is required")) {
+                         complete(
+                           writer.createComment(
+                             CreateComment(
+                               tipId = tipId,
+                               username = incoming("username"),
+                               comment = incoming("comment"))))
+                       }
+                    }
+                  } getOrElse complete(StatusCodes.InternalServerError)
+                } ~
+                get {
+                  tipsReader map { reader =>
+                    complete(reader.getAllComments(GetComment(tipId = tipId, id=None)))
+                  } getOrElse complete(StatusCodes.InternalServerError)
+                }
+              }
+            }
+        } 
     }
   }
 }
