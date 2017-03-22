@@ -93,9 +93,18 @@ final case class PostgresTipsWriter(override val system: ActorSystem)
 
   override def createComment(comment: CreateComment): Future[Comment] = {
     database.run(
-      (comments.map(c => (c.tipId, c.username, c.comment))
-        returning comments.map(c => (c.id, c.tipId, c.username, c.comment, c.created))
-        into ((_, fullComment) => Comment.tupled.apply(fullComment))) += ((comment.tipId, comment.username, comment.comment))
+      (
+        (for {
+          t <- tips if t.id === comment.tipId
+        } yield t.updated).update(DateTime.now())
+    andThen
+      ((comments.map(c => (c.tipId, c.username, c.comment))
+        returning comments.map(c => 
+          (c.id, c.tipId, c.username, c.comment, c.created)
+        ) into (
+          (_, fullComment) => Comment.tupled.apply(fullComment)
+        )) += ((comment.tipId, comment.username, comment.comment)))
+      ).transactionally
     )
   }
 }
