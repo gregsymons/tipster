@@ -48,8 +48,7 @@ services:
     image: postgres:9.6-alpine
     networks:
       public:
-        aliases:
-          - "tipster-db"
+        ipv4_address: '172.24.0.51'
     environment:
       POSTGRES_USER: tipster
       POSTGRES_PASSWORD: tipster
