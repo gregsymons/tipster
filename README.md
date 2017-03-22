@@ -1,10 +1,98 @@
 Tipster
--------
+=======
 
 *A simple service for submitting, retrieving, and commenting on tips*
 
+API
+---
+
+### Creating a tip:
+
+```
+$ curl -XPOST -H 'Content-type: application/json' -d \
+    '{ "username": "ted", "message": "Strange things are afoot at the Circle-K" }' \
+    http://172.24.0.50/tips
+    
+  {
+    "username": "bill",
+    "id": 1,
+    "updated": "20170322T051207.097Z",
+    "message": "Strange things are afoot at the Circle K",
+    "created": "20170322T051207.097Z"
+  }
+```
+
+### Retrieving tips
+
+For a specific tip, just append the id to the tips endpoint:
+
+```
+$ curl http://172.24.0.50/tips/1
+    
+  {
+    "username": "bill",
+    "id": 1,
+    "updated": "20170322T051207.097Z",
+    "message": "Strange things are afoot at the Circle K",
+    "created": "20170322T051207.097Z"
+  }
+```
+
+To get all tips, just get the `tips` resource with no additional path:
+
+```
+$ curl http://172.24.0.50/tips
+  [ 
+    {
+      "username": "bill",
+      "id": 1,
+      "updated": "20170322T051207.097Z",
+      "message": "Strange things are afoot at the Circle K",
+      "created": "20170322T051207.097Z"
+    }
+  ]
+```
+
+### Commenting on tips
+
+Once a tip has been created, you can add comments by posting to its comments
+URI:
+
+```
+$ curl -XPOST -H 'Content-type: application/json' \
+       -d '{ "username": "bill", "comment": "Bogus." }' \
+       http://172.24.0.50/tips/1/comments
+    
+  {
+    "username": "ted",
+    "tipId: 1,
+    "id": 1,
+    "updated": "20170322T051207.097Z",
+    "message": "Bogus.",
+    "created": "20170322T051207.097Z"
+  }
+```
+
+### Retrieving comments
+
+The comments for a tip can be retrieved from its comments URI;
+
+```
+$ curl http://172.24.0.50/tips/1/comments
+  [   
+    {
+      "username": "ted",
+      "tipId: 1,
+      "id": 1,
+      "updated": "20170322T051207.097Z",
+      "message": "Bogus.",
+      "created": "20170322T051207.097Z"
+    }
+  ]
+```
+
 Getting Started
-===============
+---------------
 
 ### Prerequisites ###
 
@@ -54,3 +142,5 @@ can do so by running `docker-compose down tipster`. Then you can run tipster in
 a local jvm by running `./sbt run`. If you want to attach a debugger, then you
 can run `./sbt -jvm-debug <port> run` and then configure your IDE to connect to the
 debugger on the specified port
+
+[sbt-native-packager]: http://www.scala-sbt.org/sbt-native-packager/
